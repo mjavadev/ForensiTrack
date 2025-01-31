@@ -3,18 +3,23 @@ import os
 import face_recognition
 import cv2
 import numpy as np
+import subprocess
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder='static')
 
 # Configure upload folders
 UPLOAD_FOLDER = 'static/images'
 VIDEO_FOLDER = 'static/videos'
+DATABASE_FOLDER = 'static/database'  # Database moved inside static
+
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['VIDEO_FOLDER'] = VIDEO_FOLDER
+app.config['DATABASE_FOLDER'] = DATABASE_FOLDER
 
 # Ensure upload folders exist
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(VIDEO_FOLDER, exist_ok=True)
+os.makedirs(DATABASE_FOLDER, exist_ok=True)
 
 # Home page
 @app.route('/')
@@ -67,23 +72,22 @@ def detect_video():
     video.save(video_path)
 
     # Get the matched image path
-    matched_image_path = os.path.join('database', request.form['match'])
+    matched_image_path = os.path.join(app.config['DATABASE_FOLDER'], request.form['match'])
 
     # Check if the matched image exists
     if not os.path.exists(matched_image_path):
         return "Matched image not found in the database.", 404
 
-    # Detect the matched face in the video
-    detected, screenshot_path = detect_face_in_video(video_path, matched_image_path)
+    # Run the face detection script dynamically
+    subprocess.run(["python", "detect_face_in_video.py", matched_image_path, video_path])
 
-    return redirect(url_for('detect_result', detected=detected, screenshot=screenshot_path))
+    return redirect(url_for('detect_result', detected=True, screenshot="screenshot.jpg"))
 
 # Video detection result page
 @app.route('/detect_result')
 def detect_result():
     detected = request.args.get('detected')
     screenshot = request.args.get('screenshot')
-    print(f"Screenshot Path: {screenshot}")  # Debug statement
     return render_template('detect.html', detected=detected, screenshot=screenshot)
 
 # Match sketch to database
@@ -95,12 +99,11 @@ def match_sketch_to_db(sketch_path):
         return None, None
 
     sketch_encoding = sketch_encoding[0]
-    database_folder = 'database'
     best_match = None
     best_match_distance = float('inf')
 
-    for image_name in os.listdir(database_folder):
-        image_path = os.path.join(database_folder, image_name)
+    for image_name in os.listdir(app.config['DATABASE_FOLDER']):
+        image_path = os.path.join(app.config['DATABASE_FOLDER'], image_name)
         db_image = face_recognition.load_image_file(image_path)
         db_encoding = face_recognition.face_encodings(db_image)
 
@@ -112,37 +115,6 @@ def match_sketch_to_db(sketch_path):
                 best_match = image_name
 
     return best_match, best_match_distance
-
-# Detect face in video
-def detect_face_in_video(video_path, matched_image_path):
-    matched_image = face_recognition.load_image_file(matched_image_path)
-    matched_encoding = face_recognition.face_encodings(matched_image)[0]
-
-    video_capture = cv2.VideoCapture(video_path)
-    detected = False
-    screenshot_path = None
-
-    while True:
-        ret, frame = video_capture.read()
-        if not ret:
-            break
-
-        face_locations = face_recognition.face_locations(frame)
-        face_encodings = face_recognition.face_encodings(frame, face_locations)
-
-        for (top, right, bottom, left), face_encoding in zip(face_locations, face_encodings):
-            distance = np.linalg.norm(matched_encoding - face_encoding)
-            if distance < 0.6:
-                detected = True
-                screenshot_path = os.path.join(app.config['UPLOAD_FOLDER'], 'screenshot.jpg')
-                cv2.imwrite(screenshot_path, frame)
-                break
-
-        if detected:
-            break
-
-    video_capture.release()
-    return detected, screenshot_path
 
 if __name__ == '__main__':
     app.run(debug=True)

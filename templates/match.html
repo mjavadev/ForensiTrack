@@ -11,7 +11,7 @@
         <h1>Match Result</h1>
         {% if match %}
             <h2>Suspect Found</h2>
-            <img src="{{ url_for('static', filename='database/' + match) }}" alt="Matched Suspect">
+            <img src="{{ url_for('static', filename='database/' ~ match) }}" alt="Matched Suspect">
             <p>Match Confidence: {{ distance }}</p>
             <form action="/video_detection" method="get" style="display: inline;">
                 <input type="hidden" name="match" value="{{ match }}">
