@@ -94,12 +94,16 @@ def detect_result():
     detected = request.args.get('detected')
     screenshot = request.args.get('screenshot')
 
+    # Replace backslashes with forward slashes
+    screenshot = screenshot.replace("\\", "/")
+
     print(f"Detected: {detected}, Screenshot: {screenshot}")  # Debug print
 
     if detected == 'True':
-        return render_template('detect_result.html', detected=True, screenshot=screenshot)
+        return render_template('detect_result.html', detected=True, screenshot='images/screenshot.jpg')
     else:
         return render_template('detect_result.html', detected=False)
+
 
 
 

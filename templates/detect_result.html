@@ -13,7 +13,10 @@
         {% if detected %}
             <h2>Face Detected</h2>
             <!-- Display the screenshot from the 'static/images' folder -->
-            <img src="{{ url_for('static', filename='images/' ~ screenshot) }}" alt="Detected Face" class="screenshot">
+            <!--      <p>{{ screenshot }}</p>  Debugging line -->
+            <!-- <img src="{{ url_for('static', filename='images/' + screenshot) }}" alt="Detected Face" class="screenshot">-->
+            <img src="{{ url_for('static', filename=screenshot) }}" alt="Detected Face" class="screenshot">
+
         {% else %}
             <h2>No Face Detected</h2>
             <p>No face was detected in the video footage.</p>
