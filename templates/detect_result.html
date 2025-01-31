@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Detection Result</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>Video Detection Result</h1>
+
+        {% if detected %}
+            <h2>Face Detected</h2>
+            <!-- Display the screenshot from the 'static/images' folder -->
+            <img src="{{ url_for('static', filename='images/' ~ screenshot) }}" alt="Detected Face" class="screenshot">
+        {% else %}
+            <h2>No Face Detected</h2>
+            <p>No face was detected in the video footage.</p>
+        {% endif %}
+
+        <a href="/" class="btn">Back to Home</a>
+    </div>
+</body>
+</html>

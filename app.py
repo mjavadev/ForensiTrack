@@ -3,23 +3,20 @@ import os
 import face_recognition
 import cv2
 import numpy as np
-import subprocess
+from detect_face_in_video import detect_face_in_video
+
 
 app = Flask(__name__, static_folder='static')
 
 # Configure upload folders
 UPLOAD_FOLDER = 'static/images'
 VIDEO_FOLDER = 'static/videos'
-DATABASE_FOLDER = 'static/database'  # Database moved inside static
-
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['VIDEO_FOLDER'] = VIDEO_FOLDER
-app.config['DATABASE_FOLDER'] = DATABASE_FOLDER
 
 # Ensure upload folders exist
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(VIDEO_FOLDER, exist_ok=True)
-os.makedirs(DATABASE_FOLDER, exist_ok=True)
 
 # Home page
 @app.route('/')
@@ -51,7 +48,6 @@ def match():
     sketch = request.args.get('sketch')
     match = request.args.get('match')
     distance = request.args.get('distance')
-    print(f"Matched Image: {match}")  # Debug statement
     return render_template('match.html', sketch=sketch, match=match, distance=distance)
 
 # Video detection page
@@ -60,6 +56,7 @@ def video_detection():
     match = request.args.get('match')
     return render_template('detect.html', match=match)
 
+# Handle video upload and face detection
 # Handle video upload and face detection
 @app.route('/detect_video', methods=['POST'])
 def detect_video():
@@ -72,23 +69,39 @@ def detect_video():
     video.save(video_path)
 
     # Get the matched image path
-    matched_image_path = os.path.join(app.config['DATABASE_FOLDER'], request.form['match'])
+    matched_image_path = os.path.join('static', 'database', request.form['match'])
 
-    # Check if the matched image exists
     if not os.path.exists(matched_image_path):
         return "Matched image not found in the database.", 404
 
-    # Run the face detection script dynamically
-    subprocess.run(["python", "detect_face_in_video.py", matched_image_path, video_path])
+    # Detect the matched face in the video
+    detected, screenshot_path = detect_face_in_video(video_path, matched_image_path)
 
-    return redirect(url_for('detect_result', detected=True, screenshot="screenshot.jpg"))
+    print(f"Detection result: {detected}, Screenshot path: {screenshot_path}")  # Debug print
 
+    detected_str = 'True' if detected else 'False'
+
+    if detected:
+        return redirect(url_for('detect_result', detected=detected_str, screenshot=screenshot_path))
+    else:
+        return redirect(url_for('detect_result', detected=detected_str))
+
+
+# Video detection result page
 # Video detection result page
 @app.route('/detect_result')
 def detect_result():
     detected = request.args.get('detected')
     screenshot = request.args.get('screenshot')
-    return render_template('detect.html', detected=detected, screenshot=screenshot)
+
+    print(f"Detected: {detected}, Screenshot: {screenshot}")  # Debug print
+
+    if detected == 'True':
+        return render_template('detect_result.html', detected=True, screenshot=screenshot)
+    else:
+        return render_template('detect_result.html', detected=False)
+
+
 
 # Match sketch to database
 def match_sketch_to_db(sketch_path):
@@ -99,11 +112,12 @@ def match_sketch_to_db(sketch_path):
         return None, None
 
     sketch_encoding = sketch_encoding[0]
+    database_folder = 'static/database'
     best_match = None
     best_match_distance = float('inf')
 
-    for image_name in os.listdir(app.config['DATABASE_FOLDER']):
-        image_path = os.path.join(app.config['DATABASE_FOLDER'], image_name)
+    for image_name in os.listdir(database_folder):
+        image_path = os.path.join(database_folder, image_name)
         db_image = face_recognition.load_image_file(image_path)
         db_encoding = face_recognition.face_encodings(db_image)
 
@@ -115,6 +129,7 @@ def match_sketch_to_db(sketch_path):
                 best_match = image_name
 
     return best_match, best_match_distance
+
 
 if __name__ == '__main__':
     app.run(debug=True)
