@@ -1,5 +1,6 @@
-from flask import Flask, render_template, request, redirect, url_for, jsonify
+from flask import Flask, render_template, request, redirect, url_for, jsonify, session, flash
 import os
+import sqlite3
 import face_recognition
 import cv2
 import numpy as np
@@ -10,6 +11,7 @@ import logging
 from huggingface_hub import InferenceClient
 from dotenv import load_dotenv
 from io import BytesIO
+from flask_session import Session  # To manage sessions
 
 # Load environment variables
 load_dotenv()
@@ -30,6 +32,11 @@ client = InferenceClient(provider="fal-ai", api_key=HF_API_KEY)
 
 app = Flask(__name__, static_folder='static')
 
+app.secret_key = os.getenv("FLASK_SECRET_KEY", "fallback_default_key")
+# Session Configuration (optional)
+app.config['SESSION_TYPE'] = 'filesystem'  # Store session data in files
+Session(app)
+
 # Configure upload folders
 UPLOAD_FOLDER = 'static/images'
 VIDEO_FOLDER = 'static/videos'
@@ -46,10 +53,91 @@ feedback_history = []
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 
-# Home page
+
+# Database connection
+def get_db_connection():
+    conn = sqlite3.connect('users.db')
+    conn.row_factory = sqlite3.Row
+    return conn
+
+# Initialize database
+def init_db():
+    with get_db_connection() as conn:
+        conn.execute('''CREATE TABLE IF NOT EXISTS users (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        username TEXT UNIQUE NOT NULL,
+                        email TEXT UNIQUE NOT NULL,
+                        password TEXT NOT NULL)''')
+        conn.commit()
+
+init_db()
+
 @app.route('/')
+def home():
+    if 'user' in session:
+        return redirect(url_for('index'))
+    flash("Your session has expired. Please log in again.", "warning")
+    return redirect(url_for('login'))
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+
+        if not username or not password:
+            flash("All fields are required!", "danger")
+            return redirect(url_for('login'))
+
+        conn = get_db_connection()
+        user = conn.execute("SELECT * FROM users WHERE username = ? AND password = ?", (username, password)).fetchone()
+        conn.close()
+
+        if user:
+            session['user'] = username
+            return redirect(url_for('index'))
+        else:
+            flash("Invalid credentials", "danger")
+            return redirect(url_for('login'))
+    
+    return render_template('login.html')
+
+@app.route('/logout')
+def logout():
+    session.pop('user', None)
+    flash("Logged out successfully", "success")
+    return redirect(url_for('login'))
+
+@app.route('/signup', methods=['GET', 'POST'])
+def signup():
+    if request.method == 'POST':
+        username = request.form['username']
+        email = request.form['email']
+        password = request.form['password']
+
+        if not username or not email or not password:
+            flash("All fields are required!", "danger")
+            return redirect(url_for('signup'))
+
+        try:
+            conn = get_db_connection()
+            conn.execute("INSERT INTO users (username, email, password) VALUES (?, ?, ?)", (username, email, password))
+            conn.commit()
+            conn.close()
+            flash("Your account has been created! Please log in.", "success")
+            return redirect(url_for('login'))
+        except sqlite3.IntegrityError:
+            flash("Username or Email already exists!", "danger")
+            return redirect(url_for('signup'))
+    
+    return render_template('signup.html')
+
+@app.route('/index')
 def index():
-    return render_template('index.html')
+    if 'user' not in session:
+        flash("Your session has expired. Please log in again.", "warning")
+        return redirect(url_for('login'))
+    return render_template('index.html') # Redirect to login if not authenticated
 
 @app.route('/generate-sketch')
 def generate_sketch():
@@ -270,9 +358,6 @@ def refine_prompt_with_feedback(original_prompt, user_feedback):
     return original_prompt  # If no feedback, return the same prompt
 
 
-@app.route('/')
-def home():
-    return render_template('index.html')
 
 import random
 

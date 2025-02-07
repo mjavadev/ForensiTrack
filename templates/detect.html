@@ -3,19 +3,48 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Video Detection</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <title>Forensic Video Detection</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/flowbite/1.6.3/flowbite.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700&family=Roboto+Mono:wght@300;400;700&display=swap');
+        body {
+            background: #0b0f19;
+            font-family: 'Roboto Mono', monospace;
+            color: #e0e0e0;
+        }
+        .fade-in {
+            animation: fadeIn 0.8s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .glass {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0px 4px 20px rgba(0, 0, 0, 0.4);
+        }
+    </style>
 </head>
-<body>
-    <div class="container">
-        <h1>Video Detection</h1>
-        <form action="/detect_video" method="post" enctype="multipart/form-data">
-            <label for="video">Upload Video:</label>
-            <input type="file" name="video" id="video" accept="video/*" required>
+<body class="flex items-center justify-center min-h-screen relative overflow-hidden">
+    <div class="glass p-10 rounded-2xl shadow-2xl w-full max-w-lg text-center fade-in relative">
+        <h1 class="text-4xl font-extrabold mb-6 text-blue-400 tracking-wider border-b border-blue-500 pb-3 uppercase">Forensic Video Detection</h1>
+        <form action="/detect_video" method="post" enctype="multipart/form-data" class="space-y-6">
+            <label for="video" class="block text-lg font-semibold text-gray-300">Upload Video:</label>
+            <input type="file" name="video" id="video" accept="video/*" required 
+                   class="block w-full text-sm text-gray-300 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700 transition">
             <input type="hidden" name="match" value="{{ match }}">
-            <button type="submit" class="btn">Detect Face</button>
+            <button type="submit" 
+                    class="w-full bg-gradient-to-r from-blue-600 to-gray-900 hover:from-blue-700 hover:to-gray-800 text-white font-bold py-3 px-6 rounded-lg shadow-lg transition duration-300 ease-in-out transform hover:scale-105 border border-blue-500">
+                🎥 Detect Face
+            </button>
         </form>
-        <a href="/" class="btn">Back to Home</a>
+        <a href="/" 
+           class="mt-6 inline-block w-full bg-gradient-to-r from-red-600 to-gray-900 hover:from-red-700 hover:to-gray-800 text-white font-bold py-3 px-6 rounded-lg shadow-lg transition duration-300 ease-in-out transform hover:scale-105 border border-red-500">
+            ⬅️ Return to Dashboard
+        </a>
     </div>
 </body>
 </html>
