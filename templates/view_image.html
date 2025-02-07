@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8f9fa;
+            font-family: 'Arial', sans-serif;
+        }
+        .container {
+            max-width: 600px;
+            margin-top: 50px;
+        }
+        h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 30px;
+        }
+        .sketch-image {
+            border-radius: 8px;
+            max-width: 100%;
+            height: auto;
+        }
+        .regenerate-section {
+            margin-top: 20px;
+        }
+        .error-message, .success-message {
+            margin-top: 20px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="text-center">{{ title }}</h1>
+
+        <div class="text-center">
+            <img src="{{ image_url }}" alt="Generated Sketch" class="sketch-image mb-4">
+        </div>
+        
+        <!-- Button to use the generated sketch -->
+        <div class="text-center mt-4">
+            <form action="/upload-ai" method="post">
+                <input type="hidden" name="sketch" value="{{ image_url }}">
+                <button type="submit" class="btn btn-success">Use This Sketch</button>
+            </form>
+        </div>
+
+        <div class="regenerate-section">
+            <h5 class="text-center">Modify your description or add more details:</h5>
+            <textarea id="userFeedback" class="form-control mb-3" placeholder="Add more details..." rows="4"></textarea>
+            <button class="btn btn-warning w-100" onclick="regenerateImage()">Regenerate Sketch</button>
+        </div>
+
+        <div class="error-message alert alert-danger d-none" role="alert">
+            Error regenerating the sketch. Please try again.
+        </div>
+
+        <div class="success-message alert alert-success d-none" role="alert">
+            The sketch was successfully regenerated!
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.6/dist/umd/popper.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.min.js"></script>
+
+    <script>
+        // Utility: Get query parameters from the URL
+        function getQueryParam(param) {
+            const params = new URLSearchParams(window.location.search);
+            return params.get(param);
+        }
+    
+        // Retrieve the seed from the URL
+        const lastGeneratedSeed = getQueryParam('seed');
+        // Optionally, if you want to pass the prompt as well, you can retrieve it similarly
+        // const refinedPrompt = getQueryParam('refined_prompt');
+        const refinedPrompt = getQueryParam('refined_prompt');
+        
+        // Make the seed available globally for use in regeneration:
+        window.lastGeneratedSeed = lastGeneratedSeed; 
+        console.log("Seed from URL:", lastGeneratedSeed);
+        window.originalRefinedPrompt = refinedPrompt;
+        console.log("Refined prompt from URL:", refinedPrompt);
+    
+        async function regenerateImage() {
+            const userFeedback = document.getElementById('userFeedback').value;
+            const successMessage = document.querySelector('.success-message');
+            const errorMessage = document.querySelector('.error-message');
+            const imageContainer = document.querySelector('img');
+    
+            // Hide previous messages
+            successMessage.classList.add('d-none');
+            errorMessage.classList.add('d-none');
+
+            const originalPrompt = window.originalRefinedPrompt;
+    
+            // Prepare the payload. Notice that we pass lastGeneratedSeed as the seed.
+            try {
+                const response = await fetch('/regenerate-image', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        refined_prompt: originalPrompt,  // Ensure this variable is set by your template if needed
+                        feedback: userFeedback,
+                        seed: window.lastGeneratedSeed    // Pass the seed extracted from URL
+                    })
+                });
+    
+                const data = await response.json();
+                if (data.image_url) {
+                    imageContainer.src = data.image_url;
+                    successMessage.classList.remove('d-none');
+                } else {
+                    errorMessage.classList.remove('d-none');
+                }
+            } catch (error) {
+                errorMessage.classList.remove('d-none');
+            }
+        }
+    </script>
+    
+</body>
+</html>

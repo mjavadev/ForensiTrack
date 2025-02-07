@@ -30,11 +30,16 @@ def detect_face_in_video(video_path, matched_image_path):
     detected = False
     screenshot_path = None
     
+    frame_count = 0  # To track how many frames have been processed
+
     while True:
         ret, frame = video_capture.read()
         if not ret:
             print("End of video or failed to capture frame.")
             break
+        
+        frame_count += 1
+        print(f"Processing frame {frame_count}...")  # Debug print
         
         # Convert frame to RGB (for face_recognition)
         rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
@@ -65,18 +70,11 @@ def detect_face_in_video(video_path, matched_image_path):
         
         if detected:
             break
-    
+
     video_capture.release()
-    return detected, screenshot_path
-
-# Test run when running the script directly (optional for debugging)
-if __name__ == "__main__":
-    video_path = sys.argv[1]  # Video path passed as argument
-    matched_image_path = sys.argv[2]  # Matched image path passed as argument
     
-    detected, screenshot_filename = detect_face_in_video(video_path, matched_image_path)
-
-    if detected:
-        print(f"Detected {screenshot_filename}")
-    else:
-        print("No face detected.")
+    # If no face was detected after all frames, return False
+    if not detected:
+        print("No matching face detected in the video.")
+    
+    return detected, screenshot_path

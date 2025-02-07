@@ -1,9 +1,31 @@
-from flask import Flask, render_template, request, redirect, url_for
+from flask import Flask, render_template, request, redirect, url_for, jsonify
 import os
 import face_recognition
 import cv2
 import numpy as np
 from detect_face_in_video import detect_face_in_video
+import requests
+import google.generativeai as genai
+import logging
+from huggingface_hub import InferenceClient
+from dotenv import load_dotenv
+from io import BytesIO
+
+# Load environment variables
+load_dotenv()
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+HF_API_KEY = os.getenv("HF_API_KEY")
+
+# Configure Gemini API (if using Gemini model)
+genai.configure(api_key=GEMINI_API_KEY)
+gemini_model = genai.GenerativeModel('gemini-1.5-flash')
+
+# Hugging Face FLUX API details
+HF_API_URL = "https://api-inference.huggingface.co/models/black-forest-labs/FLUX.1-dev"
+HEADERS = {"Authorization": f"Bearer {HF_API_KEY}"}
+
+# Set up Hugging Face InferenceClient
+client = InferenceClient(provider="fal-ai", api_key=HF_API_KEY)
 
 
 app = Flask(__name__, static_folder='static')
@@ -18,10 +40,20 @@ app.config['VIDEO_FOLDER'] = VIDEO_FOLDER
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(VIDEO_FOLDER, exist_ok=True)
 
+# Store the cumulative feedback
+feedback_history = []
+
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+
 # Home page
 @app.route('/')
 def index():
     return render_template('index.html')
+
+@app.route('/generate-sketch')
+def generate_sketch():
+    return render_template('generate-sketch.html')
 
 # Handle sketch upload and matching
 @app.route('/upload', methods=['POST'])
@@ -41,6 +73,28 @@ def upload():
         return redirect(url_for('match', sketch=sketch.filename, match=best_match, distance=best_match_distance))
     else:
         return redirect(url_for('match', sketch=sketch.filename, match=None, distance=None))
+
+@app.route('/upload-ai', methods=['POST'])
+def upload_ai():
+    sketch_path = request.form.get('sketch')  # Get the AI-generated image path
+
+    if not sketch_path:
+        return redirect(url_for('index'))
+
+    # Extract filename
+    filename = os.path.basename(sketch_path)
+
+    # Move the generated image to the uploads folder for consistency
+    saved_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+    os.rename(sketch_path.lstrip('/'), saved_path)  # Move the file
+
+    # Match the sketch with the database
+    best_match, best_match_distance = match_sketch_to_db(saved_path)
+
+    if best_match:
+        return redirect(url_for('match', sketch=filename, match=best_match, distance=best_match_distance))
+    else:
+        return redirect(url_for('match', sketch=filename, match=None, distance=None))
 
 # Match result page
 @app.route('/match')
@@ -134,6 +188,150 @@ def match_sketch_to_db(sketch_path):
 
     return best_match, best_match_distance
 
+#AI SKETCH
+def refine_prompt(user_input):
+    system_message = (
+        "You are a highly skilled prompt engineering assistant for forensic sketches. "
+        "Your task is to refine the user's input into a detailed, realistic police sketch description, "
+        "including facial features, hair, clothing, and background. "
+        "Use the following template for the description:\n"
+        "Subject: [Gender, Age, Ethnicity, Height, Weight]\n"
+        "Face: [Face shape, Cheeks, Eyes, Eyebrows, Nose, Mouth, Scars]\n"
+        "Hair: [Length, Texture, Color, Style]\n"
+        "Clothing: [Type, Color, Details]\n"
+        "Background: [Setting, Lighting, Details]\n"
+        "Ensure the description is as detailed and structured as possible."
+    )
+    prompt = f"{system_message}\n\nUser Input: {user_input}\n\nRefined Prompt:"
+    response = gemini_model.generate_content(prompt)
+    return response.text
+
+from io import BytesIO
+
+def generate_image_from_prompt(prompt, seed):
+    logging.info(f"Starting image generation process with seed: {seed}")
+    
+    payload = {
+        "inputs": prompt,
+        "parameters": {"seed": seed}  # Ensure stable outputs using the same seed
+    }
+    
+    MAX_RETRIES = 3
+    retry_wait_time = 10  # Initial wait time (seconds)
+
+    for attempt in range(MAX_RETRIES):
+        logging.info(f"Attempt {attempt + 1} of {MAX_RETRIES}...")
+        try:
+            # Make the request to generate an image with a fixed seed
+            response = client.text_to_image(
+                prompt, model="black-forest-labs/FLUX.1-dev", seed=seed
+            )
+            
+            # Convert the image to bytes
+            image_bytes = BytesIO()
+            response.save(image_bytes, format='PNG')  # Saving image as PNG
+            image_bytes.seek(0)  # Reset pointer to the beginning of the byte stream
+            
+            # Save the image to a file
+            image_path = f"static/generated_image_{seed}.png"  # Unique filename per seed
+            with open(image_path, "wb") as f:
+                f.write(image_bytes.read())  # Write the image bytes to the file
+
+            logging.info("Image generated successfully.")
+            return image_path
+        
+        except Exception as e:
+            logging.error(f"Error generating image: {e}")
+            break
+
+    logging.error("Failed to generate image after retries.")
+    return None
+
+
+def refine_prompt_with_feedback(original_prompt, user_feedback):
+    """
+    Enhances the existing prompt by applying user feedback while keeping the original structure.
+    """
+    if user_feedback:
+        feedback_prompt = f"""
+        Keep the overall structure and details of the original prompt but adjust only the necessary parts 
+        based on the user feedback.
+
+        Original Prompt:
+        {original_prompt}
+
+        User Feedback:
+        {user_feedback}
+
+        Improved Prompt:
+        """
+        return gemini_model.generate_content(feedback_prompt).text.strip()
+    
+    return original_prompt  # If no feedback, return the same prompt
+
+
+@app.route('/')
+def home():
+    return render_template('index.html')
+
+import random
+
+@app.route('/generate-image', methods=['POST'])
+def generate_image():
+    user_input = request.json.get('input')
+    refined_prompt = refine_prompt(user_input)
+    logging.info(f"Initial refined prompt: {refined_prompt}")
+    # Generate a fixed seed to ensure image consistency on regeneration
+    seed = random.randint(0, 999999)
+
+    image_path = generate_image_from_prompt(refined_prompt, seed)
+
+    if image_path:
+        return jsonify({
+            "image_url": f"/{image_path}",
+            "refined_prompt": refined_prompt,
+            "seed": seed  # Store seed for later use
+        })
+    
+    return jsonify({"error": "Failed to generate image"}), 500
+
+
+@app.route('/regenerate-image', methods=['POST'])
+def regenerate_image():
+    data = request.json
+    logging.info(f"Received for regeneration - original refined_prompt: {data.get('refined_prompt')}, feedback: {data.get('feedback')}")
+    
+    # Update feedback history with the new feedback
+    feedback_history.append(data.get('feedback', ''))
+    refined_prompt = data.get('refined_prompt')
+    
+    # Combine all previous feedback and apply it to the current prompt
+    for feedback in feedback_history:
+        refined_prompt = refine_prompt_with_feedback(refined_prompt, feedback)
+
+    logging.info(f"Regeneration refined prompt: {refined_prompt}")
+    seed = data.get("seed")  # Retrieve the same seed
+    logging.info(f"Received seed: {seed}")
+
+    if not seed:
+        seed = random.randint(0, 999999)  # Fallback seed if missing
+
+    image_path = generate_image_from_prompt(refined_prompt, seed)
+
+    if image_path:
+        return jsonify({
+            "image_url": f"/{image_path}",
+            "refined_prompt": refined_prompt,
+            "seed": seed  # Keep passing the same seed for consistency
+        })
+    
+    return jsonify({"error": "Failed to regenerate image"}), 500
+
+@app.route('/view-image')
+def view_image():
+    image_url = request.args.get('image_url')
+    title = request.args.get('title')
+    return render_template('view_image.html', image_url=image_url, title=title)
 
 if __name__ == '__main__':
     app.run(debug=True)

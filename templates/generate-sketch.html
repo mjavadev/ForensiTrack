@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sketch Generator</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8f9fa;
+            font-family: 'Arial', sans-serif;
+        }
+        .container {
+            max-width: 600px;
+            margin-top: 50px;
+        }
+        h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 30px;
+        }
+        .input-section, .output-section {
+            background: #fff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .textarea, .button {
+            width: 100%;
+        }
+        .button {
+            background-color: #007bff;
+            color: white;
+            padding: 12px;
+            font-size: 16px;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        .button:disabled {
+            background-color: #ccc;
+        }
+        .regenerate-section {
+            display: none;
+            margin-top: 20px;
+            text-align: center;
+        }
+        .sketch-image {
+            border-radius: 8px;
+            max-width: 100%;
+            height: auto;
+        }
+        .status-message {
+            text-align: center;
+            font-size: 18px;
+            font-weight: bold;
+        }
+        .error-message, .success-message {
+            margin-top: 20px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="text-center">Suspect Sketch Generator</h1>
+        
+        <div class="input-section">
+            <!-- Gender -->
+            <select id="gender" class="form-control mb-3">
+                <option value="" disabled selected>Select Gender</option>
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+            </select>
+        
+            <!-- Age -->
+            <input type="number" id="age" class="form-control mb-3" placeholder="Age (e.g., 30)" />
+        
+            <!-- Face Shape -->
+            <input type="text" id="faceShape" class="form-control mb-3" placeholder="Face Shape (e.g., lean, round)" />
+        
+            <!-- Cheekbones -->
+            <input type="text" id="cheekbones" class="form-control mb-3" placeholder="Cheekbone Details (e.g., sharp cheekbones)" />
+        
+            <!-- Eyes -->
+            <input type="text" id="eyes" class="form-control mb-3" placeholder="Eye Description (e.g., almond-shaped, brown)" />
+        
+            <!-- Brows -->
+            <input type="text" id="brows" class="form-control mb-3" placeholder="Brow Details (e.g., thick, arched)" />
+        
+            <!-- Nose -->
+            <input type="text" id="nose" class="form-control mb-3" placeholder="Nose Description (e.g., straight, medium-sized)" />
+        
+            <!-- Mouth -->
+            <input type="text" id="mouth" class="form-control mb-3" placeholder="Mouth Description (e.g., thin lips)" />
+        
+            <!-- Facial Hair -->
+            <input type="text" id="facialHair" class="form-control mb-3" placeholder="Facial Hair (e.g., mustache, stubble)" />
+        
+            <!-- Hair -->
+            <input type="text" id="hair" class="form-control mb-3" placeholder="Hair Description (e.g., short, black, curly)" />
+        
+            <!-- Ears -->
+            <input type="text" id="ears" class="form-control mb-3" placeholder="Ear Details (e.g., slightly protruding)" />
+        
+            <!-- Distinctive Marks -->
+            <input type="text" id="marks" class="form-control mb-3" placeholder="Distinctive Marks (e.g., small scar on the left cheek)" />
+        
+            <!-- Clothing -->
+            <input type="text" id="clothing" class="form-control mb-3" placeholder="Clothing (e.g., dark jacket, collar up)" />
+        
+            <button class="button" onclick="generateImage()">Generate Sketch</button>
+        </div>
+        
+
+        <div class="output-section mt-4" id="output-section">
+            <!-- Image and feedback section will be rendered here -->
+        </div>
+
+        <div class="regenerate-section" id="regenerateSection">
+            <h5>Modify your description or add details:</h5>
+            <textarea id="userFeedback" class="form-control mb-3" placeholder="Add more details..." rows="4"></textarea>
+            <button class="btn btn-warning w-100" onclick="regenerateImage()">Regenerate Sketch</button>
+        </div>
+
+        <div class="status-message" id="statusMessage"></div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.6/dist/umd/popper.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.min.js"></script>
+
+    <script>
+        let isGenerating = false;
+        let currentPrompt = "";
+        let lastGeneratedSeed = null;
+        async function generateImage() {
+    if (isGenerating) return;
+    isGenerating = true;
+    document.querySelector("button").disabled = true;
+
+    // Collecting user inputs
+    const gender = document.getElementById('gender').value;
+    const age = document.getElementById('age').value || "middle-aged";
+    const faceShape = document.getElementById('faceShape').value || "neutral";
+    const cheekbones = document.getElementById('cheekbones').value || "subtle cheekbones";
+    const eyes = document.getElementById('eyes').value || "neutral eyes";
+    const brows = document.getElementById('brows').value || "natural eyebrows";
+    const nose = document.getElementById('nose').value || "medium-sized nose";
+    const mouth = document.getElementById('mouth').value || "thin lips";
+    const facialHair = document.getElementById('facialHair').value || "clean-shaven";
+    const hair = document.getElementById('hair').value || "short dark hair";
+    const ears = document.getElementById('ears').value || "average-sized ears";
+    const marks = document.getElementById('marks').value || "no visible scars";
+    const clothing = document.getElementById('clothing').value || "a dark-colored jacket with a raised collar";
+
+    // Constructing the refined prompt using structured template
+    const positivePrompt = `A highly detailed, realistic police sketch of a ${gender.toLowerCase()} suspect based on a witness description. The suspect has a ${faceShape} face with ${cheekbones}, ${eyes} eyes, and ${brows}. Their nose is ${nose}. They have ${mouth}, ${facialHair}, and ${marks}. Their hair is ${hair}. Their ears are ${ears}. They are wearing ${clothing}. The background is a plain, neutral police sketch style, with soft shading emphasizing facial details. The lighting is even, ensuring all features are clearly visible for identification purposes.`;
+
+    const negativePrompt = "no cartoonish style, no blurry features, no unrealistic proportions, no extra objects, no distracting background, no exaggerated expressions, no low detail, no watermarks, no text, no abstract art, no fantasy elements.";
+
+    const finalPrompt = `${positivePrompt} Negative Prompt: ${negativePrompt}`;
+
+    const outputSection = document.getElementById('output-section');
+    const statusMessage = document.getElementById('statusMessage');
+    
+    outputSection.innerHTML = '';
+    statusMessage.textContent = 'Generating sketch... Please wait.';
+
+    try {
+        const response = await fetch('/generate-image', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ input: finalPrompt })
+        });
+
+        const data = await response.json();
+        statusMessage.textContent = '';
+
+        if (data.image_url) {
+    currentPrompt = finalPrompt;
+    lastGeneratedSeed = data.seed;
+    console.log("Generated image seed:", lastGeneratedSeed);
+    // Pass the refined prompt (encode it properly)
+    window.location.href = `/view-image?image_url=${encodeURIComponent(data.image_url)}&title=Generated%20Sketch&seed=${lastGeneratedSeed}&refined_prompt=${encodeURIComponent(currentPrompt)}`;
+}
+
+         else {
+            statusMessage.textContent = 'Error generating sketch. Please try again.';
+        }
+    } catch (error) {
+        statusMessage.textContent = 'An error occurred. Please check your connection and try again.';
+    }
+
+    isGenerating = false;
+    document.querySelector("button").disabled = false;
+}
+
+
+// Same script code as before...
+async function regenerateImage() {
+    const userFeedback = document.getElementById('userFeedback').value.trim();
+    const outputSection = document.getElementById('output-section');
+    const regenerateSection = document.getElementById('regenerateSection');
+    const statusMessage = document.getElementById('statusMessage');
+
+    outputSection.innerHTML = '';
+    statusMessage.textContent = 'Regenerating sketch... Please wait.';
+    regenerateSection.style.display = 'none';
+
+    try {
+        const response = await fetch('/regenerate-image', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                refined_prompt: currentPrompt,
+                feedback: userFeedback,
+                seed: lastGeneratedSeed
+            })
+        });
+
+        const data = await response.json();
+        statusMessage.textContent = '';
+
+        if (data.image_url) {
+            window.location.href = `/view-image?image_url=${encodeURIComponent(data.image_url)}&title=Regenerated%20Sketch`;
+        } else {
+            statusMessage.textContent = 'Error regenerating sketch. Please try again.';
+        }
+    } catch (error) {
+        statusMessage.textContent = 'An error occurred. Please check your connection and try again.';
+    }
+}
+
+
+
+    </script>
+</body>
+</html>
