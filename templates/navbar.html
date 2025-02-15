@@ -1,0 +1,16 @@
+<nav class="bg-gray-900 p-4 shadow-lg">
+    <div class="container mx-auto flex justify-between items-center">
+        <a href="/" class="text-red-400 text-2xl font-bold">Forensic System</a>
+        <ul class="flex space-x-6 text-gray-300">
+            <li><a href="/" class="hover:text-red-400">Home</a></li>
+            <li><a href="/generate-sketch" class="hover:text-red-400">Generate Sketch</a></li>
+            <li><a href="/video_detection" class="hover:text-red-400">Video Detection</a></li>
+            {% if 'user' in session %}
+                <li><a href="/logout" class="text-red-500 font-bold">Logout</a></li>
+            {% else %}
+                <li><a href="/login" class="hover:text-red-400">Login</a></li>
+                <li><a href="/signup" class="hover:text-red-400">Sign Up</a></li>
+            {% endif %}
+        </ul>
+    </div>
+</nav>

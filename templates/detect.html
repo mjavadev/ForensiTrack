@@ -28,7 +28,9 @@
         }
     </style>
 </head>
-<body class="flex items-center justify-center min-h-screen relative overflow-hidden">
+<body>
+    {% include 'navbar.html' %}
+<div class="flex items-center justify-center min-h-screen relative overflow-hidden">
     <div class="glass p-10 rounded-2xl shadow-2xl w-full max-w-lg text-center fade-in relative">
         <h1 class="text-4xl font-extrabold mb-6 text-blue-400 tracking-wider border-b border-blue-500 pb-3 uppercase">Forensic Video Detection</h1>
         <form action="/detect_video" method="post" enctype="multipart/form-data" class="space-y-6">
@@ -46,5 +48,6 @@
             ⬅️ Return to Dashboard
         </a>
     </div>
+</div>
 </body>
 </html>
