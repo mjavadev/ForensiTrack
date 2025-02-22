@@ -56,7 +56,7 @@ def detect_face_in_video(video_path, matched_image_path):
             print(f"Distance to matched face: {distance}")  # Debug print
 
             # If the face matches
-            if distance < 0.6:  # You can adjust the threshold based on your needs
+            if distance < 0.47:  # You can adjust the threshold based on your needs
                 detected = True
                 cv2.rectangle(frame, (left, top), (right, bottom), (0, 255, 0), 2)
                 cv2.putText(frame, "Detected", (left, top - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)

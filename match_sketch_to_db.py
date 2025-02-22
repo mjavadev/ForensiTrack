@@ -8,7 +8,6 @@ from multiprocessing import Pool, freeze_support
 import logging
 
 # Configure logging to print messages to the console
-# Configure logging to print messages to the console
 logger = logging.getLogger()  # Get the root logger
 logger.setLevel(logging.DEBUG)  # Set the root logger to DEBUG level
 
@@ -22,7 +21,6 @@ console_handler.setFormatter(formatter)
 
 # Add the handler to the root logger
 logger.addHandler(console_handler)
-
 
 # Preprocessing function for sketches
 def preprocess_sketch(image):
@@ -46,15 +44,20 @@ def process_image(image_path):
         facenet_embedding = normalize_embedding(np.array(embedding_facenet[0]["embedding"]))
         arcface_embedding = normalize_embedding(np.array(embedding_arcface[0]["embedding"]))
 
+        print(f"Processed: {image_path}")  # Add print statement here
+        logging.info(f"Processed: {image_path}")  # Log the process as well
         return image_path, {"Facenet": facenet_embedding, "ArcFace": arcface_embedding}
     except Exception as e:
         logging.error(f"Error processing {image_path}: {e}")
+        print(f"Error processing {image_path}: {e}")  # Print the error here
         return None
 
 def main():
     # Load the sketch
     sketch_path = "vk.jpg"
+    print(f"Processing sketch: {sketch_path}")  # Add print statement here
     logging.info(f"Processing sketch: {sketch_path}")
+
     sketch_image = cv2.imread(sketch_path)
     sketch_image = cv2.cvtColor(sketch_image, cv2.COLOR_BGR2RGB)
     sketch_image = preprocess_sketch(sketch_image)
@@ -77,10 +80,12 @@ def main():
     # Try to load cached embeddings
     if os.path.exists("embeddings.pkl"):
         logging.info("Loading cached embeddings...")
+        print("Loading cached embeddings...")  # Add print statement here
         with open("embeddings.pkl", "rb") as f:
             db_embeddings = pickle.load(f)
     else:
         logging.info("Computing embeddings for database images...")
+        print("Computing embeddings for database images...")  # Add print statement here
         with Pool() as pool:
             results = pool.map(process_image, database_images)
 
@@ -90,15 +95,18 @@ def main():
             pickle.dump(db_embeddings, f)
 
     # Match Parameters
-    MATCH_THRESHOLD = 0.2  # Stricter match threshold
-    REJECT_THRESHOLD = 0.15  # Stricter rejection
+    MATCH_THRESHOLD = 0.15  # Stricter match threshold
+    REJECT_THRESHOLD = 0.10  # Stricter rejection
 
     best_match = None
     best_match_name = None
     best_match_distance = float("inf")
 
+    print(f"Processing {len(db_embeddings)} images...")  # Add print statement here
     logging.info(f"Processing {len(db_embeddings)} images...")
+
     for i, (image_path, db_embedding) in enumerate(db_embeddings):
+        print(f"Processing image {i + 1}/{len(db_embeddings)}: {image_path}")  # Add print statement here
         logging.info(f"Processing image {i + 1}/{len(db_embeddings)}: {image_path}")
 
         # Compute cosine distances
