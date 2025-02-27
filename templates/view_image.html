@@ -103,6 +103,41 @@
                 errorMessage.classList.remove('d-none');
             }
         }
+        async function regenerateImage() {
+            const userFeedback = document.getElementById('userFeedback').value.trim();
+            const errorMessage = document.getElementById('errorMessage');
+            const successMessage = document.getElementById('successMessage');
+            
+            // Get the refined prompt from URL parameters
+            const refinedPrompt = getQueryParam('refined_prompt');
+        
+            try {
+                const response = await fetch('/regenerate-image', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        refined_prompt: refinedPrompt,
+                        feedback: userFeedback,
+                        seed: lastGeneratedSeed
+                    })
+                });
+        
+                const data = await response.json();
+        
+                if (data.image_url) {
+                    // Redirect to the new image
+                    window.location.href = `/view-image?image_url=${encodeURIComponent(data.image_url)}&title=Regenerated%20Sketch&seed=${data.seed}&refined_prompt=${encodeURIComponent(refinedPrompt)}`;
+                } else {
+                    errorMessage.classList.remove('hidden');
+                    successMessage.classList.add('hidden');
+                }
+            } catch (error) {
+                errorMessage.classList.remove('hidden');
+                successMessage.classList.add('hidden');
+                console.error('Error:', error);
+            }
+        }
+        
     </script>
     
 </body>
